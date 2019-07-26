@@ -4,8 +4,8 @@ from tkinter import messagebox
 
 # cube object
 class cube(object):
-    rows = 0
-    w = 0
+    rows = 20
+    w = 500
 
     def __init__(self, start, dirnx=1, dirny=0, color=(255, 0, 0)):  # dirnx=1 means the snake starts moving right away
         self.pos = start
@@ -16,10 +16,22 @@ class cube(object):
     def move(self, dirnx, dirny):
         self.dirnx = dirnx
         self.dirny = dirny
-        self.pos(self.pos[0] + self.dirnx, self.pos[1] + self.dirny)
+        self.pos = (self.pos[0] + self.dirnx, self.pos[1] + self.dirny)
 
-    def draw(self, surface, eyes=False):
-        pass
+    def draw(self, surface, eyes=False):  # in pygame, you draw from the top left corner
+        dis = self.w // self.rows
+        i = self.pos[0]
+        j = self.pos[1]
+
+        # the 3rd parameter is to make the cube fill inside the grid lines. otherwise, the girds would disappear
+        pygame.draw.rect(surface, self.color, (i*dis+1, j*dis+1, dis-2, dis-2))
+        if eyes:  # draws the eyes
+            centre = dis // 2
+            radius = 3
+            circle_middle = (i * dis + centre - radius, j * dis + 8)
+            circle_middle2 = (i * dis + dis - radius * 2, j * dis + 8)
+            pygame.draw.circle(surface, (0, 0, 0), circle_middle, radius)
+            pygame.draw.circle(surface, (0, 0, 0), circle_middle2, radius)
 
 # our snake object which will contain cube object
 class snake(object):
@@ -54,12 +66,12 @@ class snake(object):
                     self.dirny = 0
                     self.turns[self.head.pos[:]] = [self.dirnx, self.dirny]
 
-                elif key[pygame.K_UP]:
+                elif keys[pygame.K_UP]:
                     self.dirnx = 0
                     self.dirny = -1
                     self.turns[self.head.pos[:]] = [self.dirnx, self.dirny]
 
-                elif key[pygame.K_DOWN]:
+                elif keys[pygame.K_DOWN]:
                     self.dirnx = 0
                     self.dirny = 1
                     self.turns[self.head.pos[:]] = [self.dirnx, self.dirny]
@@ -85,13 +97,35 @@ class snake(object):
                     c.move(c.dirnx, c.dirny)  # if not at edge of screen, then simply we just move
 
 
+    def reset(self, pos):  # resets the snake so we can play again
+        self.head = cube(pos)
+        self.body = []
+        self.body.append(self.head)
+        self.turns = {}
+        self.dirnx = 0
+        self.dirny = 1
 
+    def add_cube(self):  # find tail of body, then add to body if snack is eaten
+        tail = self.body[-1]
+        dx = tail.dirnx
+        dy = tail.dirny
 
-    def reset(self, pos):
-        pass
+        # need to know which side of the snake to add the cube to
+        # check what direction we are currently moving in to determine if we
+        # need to add the cube to the left, right, above or below
+        if dx == 1 and dy == 0:  # right
+            self.body.append(cube((tail.pos[0] - 1, tail.pos[1])))
+        elif dx == -1 and dy == 0:  # left
+            self.body.append(cube((tail.pos[0] + 1, tail.pos[1])))
+        elif dx == 0 and dy == 1:  # down
+            self.body.append(cube((tail.pos[0], tail.pos[1] - 1)))
+        elif dx == 0 and dy == -1:  # up
+            self.body.append(cube((tail.pos[0], tail.pos[1] + 1)))
 
-    def add_cube(self):
-        pass
+        # set the cubes direction to the direction of the snake
+        self.body[-1].dirnx = dx
+        self.body[-1].dirny = dy
+
 
     def draw(self, surface):
         for i, c in enumerate(self.body):
@@ -116,38 +150,66 @@ def draw_grid(w, rows, surface):
 
 
 def redraw_window(surface):  # surface meaning the window plane
-    global rows, width, s
+    global rows, width, s, snack
     surface.fill((0, 0, 0))  # the surface color is black
     s.draw(surface)
+    snack.draw(surface)
     draw_grid(width, rows, surface)
     pygame.display.update()
 
 
+def random_snack(rows, item):
+    #global rows
+    positions = item.body
 
-def random_snack(rows, items):
-    pass
+    while True:
+        x = random.randrange(rows)
+        y = random.randrange(rows)
+        if len(list(filter(lambda z:z.pos == (x,y), positions))) > 0:  # makes sure the snake does not appear on snake
+            continue
+        else:
+            break
+
+    return x, y
 
 
 def message_box(subject, content):
-    pass
+    root = tk.Tk()
+    root.attributes("-topmost", True)
+    root.withdraw()
+    messagebox.showinfo(subject, content)
+    try:
+        root.destroy()
+    except:
+        pass
 
 
 def main():
-    global width, rows, s
-    width = 400
+    global width, rows, s, snack  # you have to global each variable to be able to use it in other functions
+    width = 500
     rows = 20  # the number of rows must divide evenly with the width
     win = pygame.display.set_mode((width, width))
     s = snake((255, 0, 0), (10, 10))  # the snake object. must pass color and position
-
+    snack = cube(random_snack(rows, s), color=(0,255,0))
     flag = True
 
     clock = pygame.time.Clock()  # clock object
     while flag:
         pygame.time.delay(50)  # speed option
         clock.tick(10)  # makes sure the game does not run more than 10 fps
-        redraw_window(win)
+        s.move()
+        if s.body[0].pos == snack.pos:
+            s.add_cube()
+            snack = cube(random_snack(rows, s), color=(0,255,0))
 
-    pass
+        for x in range(len(s.body)):
+            if s.body[x].pos in list(map(lambda x:x.pos, s.body[x+1:])): # will check if any of the positions in our body list overlap
+                print('score: ', len(s.body))
+                message_box('You lost', 'Play again?')
+                s.reset((10,10))
+                break  # does not matter if we collide again
+
+        redraw_window(win)
 
 
 main()
