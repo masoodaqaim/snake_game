@@ -7,11 +7,16 @@ class cube(object):
     rows = 0
     w = 0
 
-    def __init__(self, start, dirnx=1, dirny=0, color=(255, 0, 0)):
-        pass
+    def __init__(self, start, dirnx=1, dirny=0, color=(255, 0, 0)):  # dirnx=1 means the snake starts moving right away
+        self.pos = start
+        self.dirnx = 1
+        self.dirny = 0
+        self.color = color  # the 'snack' will be a different color than the snake
 
     def move(self, dirnx, dirny):
-        pass
+        self.dirnx = dirnx
+        self.dirny = dirny
+        self.pos(self.pos[0] + self.dirnx, self.pos[1] + self.dirny)
 
     def draw(self, surface, eyes=False):
         pass
@@ -19,7 +24,7 @@ class cube(object):
 # our snake object which will contain cube object
 class snake(object):
     body = [] # list
-    turns = {} # class variable
+    turns = {} # class variable. this remembers where the head turned so the body can follow
 
     def __init__(self, color, pos):
         self.color = color
@@ -34,18 +39,16 @@ class snake(object):
             if event.type == pygame.QUIT:
                 pygame.quit()
 
-            keys = pygame.key.get_pressed()  # key object
+            keys = pygame.key.get_pressed()  # key object. acts like a dictionary
 
             # for any key pressed, you can dictate what action to take
             # pygame coordinates start at 0,0 at the top most left
-
             for key in keys:
                 if keys[pygame.K_LEFT]:  # x: -1 means closer to 0
                     self.dirnx = -1
                     self.dirny = 0  # must be 0 as we dont want to move in 2 direction at at time
-                    # the bottom code remembers the positions for the body to move
-                    self.turns[self.head.pos[:]] = [self.dirnx, self.dirny]
-
+                    self.turns[self.head.pos[:]] = [self.dirnx, self.dirny] # the body follows head
+                        # self.head.pos is the 'key' and it is set (value) to what direction the head turned
                 elif keys[pygame.K_RIGHT]: # x: 1 means away from 0
                     self.dirnx = 1
                     self.dirny = 0
@@ -62,12 +65,25 @@ class snake(object):
                     self.turns[self.head.pos[:]] = [self.dirnx, self.dirny]
 
         for i, c in enumerate(self.body):  # we are enumerating the index and cube object
-            p = c.pos[:]  # for each position, see if in turn list
+            p = c.pos[:]  # for each object (c), we grab their pos and see if in turn list
             if p in self.turns:
                 turn = self.turns[p]
                 c.move(turn[0], turn[1])
-                if i == len(self.body)-1
+                if i == len(self.body) - 1:
                     self.turns.pop(p)
+
+            else:  # code for body to continue to move
+                if c.dirnx == -1 and c.pos[0] <= 0:  # checking if we reached the edge of screen
+                    c.pos = (c.rows - 1, c.pos[1])  # move across screen
+                elif c.dirnx == 1 and c.pos[0] >= c.rows - 1:  # if moving right, then go to left side cf screen
+                    c.pos = (0, c.pos[1])  # 0 indicates left side of screen
+                elif c.dirny == 1 and c.pos[1] >= c.rows - 1:
+                    c.pos = (c.pos[0], 0)  # move to top of screen
+                elif c.dirny == -1 and c.pos[1] <= 0:
+                    c.pos = (c.pos[0], c.rows -1)  # move to bottom of screen
+                else:
+                    c.move(c.dirnx, c.dirny)  # if not at edge of screen, then simply we just move
+
 
 
 
@@ -78,7 +94,11 @@ class snake(object):
         pass
 
     def draw(self, surface):
-        pass
+        for i, c in enumerate(self.body):
+            if i == 0:  # this checks and tracks the first cube
+                c.draw(surface, True)  # the True creates eyes on the first cube
+            else:
+                c.draw(surface)  # draws the rest of the body
 
 
 def draw_grid(w, rows, surface):
@@ -96,8 +116,9 @@ def draw_grid(w, rows, surface):
 
 
 def redraw_window(surface):  # surface meaning the window plane
-    global rows, w
+    global rows, width, s
     surface.fill((0, 0, 0))  # the surface color is black
+    s.draw(surface)
     draw_grid(width, rows, surface)
     pygame.display.update()
 
@@ -112,7 +133,7 @@ def message_box(subject, content):
 
 
 def main():
-    global width, rows
+    global width, rows, s
     width = 400
     rows = 20  # the number of rows must divide evenly with the width
     win = pygame.display.set_mode((width, width))
